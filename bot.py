@@ -78,8 +78,7 @@ class Dos:
     print(Fore.YELLOW + Style.BRIGHT + "    🌐 Status     : Active & Listening...")
     print(Fore.CYAN + Style.BRIGHT + "    ────────────────────────────────")
     print(Fore.MAGENTA + Style.BRIGHT + "    🧬 Powered by Cryptodai3 × FAM | INIT_PROTOCOL v3.0 🚀")
-    print(Fore.LIGHTGREEN_EX + Style.BRIGHT + "═" * 60 + "\n"
-         )
+    print(Fore.LIGHTGREEN_EX + Style.BRIGHT + "═" * 60 + "\n")
     
     def format_seconds(self, seconds):
         hours, remainder = divmod(seconds, 3600)
