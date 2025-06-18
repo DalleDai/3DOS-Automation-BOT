@@ -45,7 +45,10 @@ cd 3DOS-Automation-BOT
 ```bash
 pip install -r requirements.txt
 ```
-
+ OR
+```bash
+pip3 install -r requirements.txt
+````
 ---
 
 ## 🛠️ Configuration
@@ -88,6 +91,10 @@ Start the bot:
 ```bash
 python bot.py
 ```
+ OR
+```bash
+python3 bot.py
+````
 
 Follow prompts to select your proxy mode and start the automation.
 
