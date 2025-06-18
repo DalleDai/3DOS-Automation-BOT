@@ -69,15 +69,16 @@ class Dos:
             flush=True
         )
 
-    def welcome(self):
-        print(
-            f"""
-        {Fore.GREEN + Style.BRIGHT}Auto Connect Node {Fore.BLUE + Style.BRIGHT}3Dos - BOT
-            """
-            f"""
-        {Fore.GREEN + Style.BRIGHT}Rey? {Fore.YELLOW + Style.BRIGHT}<INI WATERMARK>
-            """
-        )
+def welcome(self):
+    print(Fore.LIGHTGREEN_EX + Style.BRIGHT + "\n" + "═" * 60)
+    print(Fore.GREEN + Style.BRIGHT + "    ⚡ Auto Connect Node BOT ⚡")
+    print(Fore.CYAN + Style.BRIGHT + "    ────────────────────────────────")
+    print(Fore.YELLOW + Style.BRIGHT + "    🧠 Project    : 3Dos - Automation Bot")
+    print(Fore.YELLOW + Style.BRIGHT + "    🧑‍💻 Author     : YetiDAO")
+    print(Fore.YELLOW + Style.BRIGHT + "    🌐 Status     : Active & Listening...")
+    print(Fore.CYAN + Style.BRIGHT + "    ────────────────────────────────")
+    print(Fore.MAGENTA + Style.BRIGHT + "    🧬 Powered by Cryptodai3 × YetiDAO | v1.0 🚀")
+    print(Fore.LIGHTGREEN_EX + Style.BRIGHT + "═" * 60 + "\n")
 
     def format_seconds(self, seconds):
         hours, remainder = divmod(seconds, 3600)
