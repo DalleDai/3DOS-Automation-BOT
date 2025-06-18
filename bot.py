@@ -69,7 +69,7 @@ class Dos:
             flush=True
         )
 
-def welcome(self):
+    def welcome(self):
     print(Fore.LIGHTGREEN_EX + Style.BRIGHT + "\n" + "═" * 60)
     print(Fore.GREEN + Style.BRIGHT + "    ⚡ Auto Connect Node BOT ⚡")
     print(Fore.CYAN + Style.BRIGHT + "    ────────────────────────────────")
@@ -79,7 +79,7 @@ def welcome(self):
     print(Fore.CYAN + Style.BRIGHT + "    ────────────────────────────────")
     print(Fore.MAGENTA + Style.BRIGHT + "    🧬 Powered by Cryptodai3 × YetiDAO | v1.0 🚀")
     print(Fore.LIGHTGREEN_EX + Style.BRIGHT + "═" * 60 + "\n")
-
+    
     def format_seconds(self, seconds):
         hours, remainder = divmod(seconds, 3600)
         minutes, seconds = divmod(remainder, 60)
