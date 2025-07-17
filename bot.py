@@ -1,17 +1,16 @@
 from aiohttp import (
     ClientResponseError,
     ClientSession,
-    ClientTimeout
+    ClientTimeout,
+    BasicAuth
 )
 from aiohttp_socks import ProxyConnector
 from datetime import datetime
 from colorama import *
-import asyncio, random, json, os, pytz
+import asyncio, random, json, re, os, pytz
 
-# Timezone
 wib = pytz.timezone('Asia/Jakarta')
 
-# User-Agents
 USER_AGENT = [
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
@@ -30,7 +29,6 @@ USER_AGENT = [
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 OPR/106.0.0.0"
 ]
 
-# Headers
 DASHBOARD_HEADERS = {
     "Accept": "application/json, text/plain, */*",
     "Accept-language": "id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7",
@@ -50,7 +48,6 @@ EXTENSION_HEADERS = {
     "Sec-Fetch-Site": "none",
     "Sec-Fetch-Storage-Access": "active"
 }
-
 
 class Dos:
     def __init__(self) -> None:
@@ -109,7 +106,7 @@ class Dos:
         try:
             if use_proxy_choice == 1:
                 async with ClientSession(timeout=ClientTimeout(total=30)) as session:
-                    async with session.get("https://api.proxyscrape.com/v4/free-proxy-list/get?request=display_proxies&proxy_format=protocolipport&format=text") as response:
+                    async with session.get("https://raw.githubusercontent.com/monosans/proxy-list/refs/heads/main/proxies/http.txt") as response:
                         response.raise_for_status()
                         content = await response.text()
                         with open(filename, 'w') as f:
@@ -141,22 +138,42 @@ class Dos:
             return proxies
         return f"http://{proxies}"
 
-    def get_next_proxy_for_account(self, email):
-        if email not in self.account_proxies:
+    def get_next_proxy_for_account(self, account):
+        if account not in self.account_proxies:
             if not self.proxies:
                 return None
             proxy = self.check_proxy_schemes(self.proxies[self.proxy_index])
-            self.account_proxies[email] = proxy
+            self.account_proxies[account] = proxy
             self.proxy_index = (self.proxy_index + 1) % len(self.proxies)
-        return self.account_proxies[email]
+        return self.account_proxies[account]
 
-    def rotate_proxy_for_account(self, email):
+    def rotate_proxy_for_account(self, account):
         if not self.proxies:
             return None
         proxy = self.check_proxy_schemes(self.proxies[self.proxy_index])
-        self.account_proxies[email] = proxy
+        self.account_proxies[account] = proxy
         self.proxy_index = (self.proxy_index + 1) % len(self.proxies)
         return proxy
+    
+    def build_proxy_config(self, proxy=None):
+        if not proxy:
+            return None, None, None
+
+        if proxy.startswith("socks"):
+            connector = ProxyConnector.from_url(proxy)
+            return connector, None, None
+
+        elif proxy.startswith("http"):
+            match = re.match(r"http://(.*?):(.*?)@(.*)", proxy)
+            if match:
+                username, password, host_port = match.groups()
+                clean_url = f"http://{host_port}"
+                auth = BasicAuth(username, password)
+                return None, clean_url, auth
+            else:
+                return None, proxy, None
+
+        raise Exception("Unsupported Proxy Type.")
     
     def mask_account(self, account):
         if "@" in account:
@@ -214,18 +231,18 @@ class Dos:
 
         return choose, rotate
     
-    async def check_connection(self, email: str, proxy=None):
-        connector = ProxyConnector.from_url(proxy) if proxy else None
+    async def check_connection(self, email: str, proxy_url=None):
+        connector, proxy, proxy_auth = self.build_proxy_config(proxy_url)
         try:
-            async with ClientSession(connector=connector, timeout=ClientTimeout(total=60)) as session:
-                async with session.post(url="http://ip-api.com/json") as response:
+            async with ClientSession(connector=connector, timeout=ClientTimeout(total=30)) as session:
+                async with session.get(url="https://api.ipify.org?format=json", proxy=proxy, proxy_auth=proxy_auth) as response:
                     response.raise_for_status()
-                    return await response.json()
+                    return True
         except (Exception, ClientResponseError) as e:
             self.print_message(email, proxy, Fore.RED, f"Connection Not 200 OK: {Fore.YELLOW+Style.BRIGHT}{str(e)}{Style.RESET_ALL}")
             return None
     
-    async def auth_login(self, email: str, proxy=None, retries=5):
+    async def auth_login(self, email: str, proxy_url=None, retries=5):
         url = f"{self.BASE_API}/auth/login"
         data = json.dumps({"email":email,"password":self.password[email]})
         headers = DASHBOARD_HEADERS.copy()
@@ -233,10 +250,10 @@ class Dos:
         headers["Content-Type"] = "application/json"
         headers["User-Agent"] = self.USER_AGENT[email]
         for attempt in range(retries):
-            connector = ProxyConnector.from_url(proxy) if proxy else None
+            connector, proxy, proxy_auth = self.build_proxy_config(proxy_url)
             try:
                 async with ClientSession(connector=connector, timeout=ClientTimeout(total=60)) as session:
-                    async with session.post(url=url, headers=headers, data=data, ssl=False) as response:
+                    async with session.post(url=url, headers=headers, data=data, proxy=proxy, proxy_auth=proxy_auth) as response:
                         response.raise_for_status()
                         return await response.json()
             except (Exception, ClientResponseError) as e:
@@ -247,7 +264,7 @@ class Dos:
 
         return None
     
-    async def user_profile(self, email: str, use_proxy: bool, rotate_proxy: bool, proxy=None, retries=5):
+    async def user_profile(self, email: str, use_proxy: bool, rotate_proxy: bool, proxy_url=None, retries=5):
         url = f"{self.BASE_API}/profile/me"
         headers = DASHBOARD_HEADERS.copy()
         headers["Authorization"] = f"Bearer {self.access_tokens[email]}"
@@ -255,10 +272,10 @@ class Dos:
         headers["Content-Type"] = "application/json"
         headers["User-Agent"] = self.USER_AGENT[email]
         for attempt in range(retries):
-            connector = ProxyConnector.from_url(proxy) if proxy else None
+            connector, proxy, proxy_auth = self.build_proxy_config(proxy_url)
             try:
                 async with ClientSession(connector=connector, timeout=ClientTimeout(total=60)) as session:
-                    async with session.post(url=url, headers=headers, json={}, ssl=False) as response:
+                    async with session.post(url=url, headers=headers, json={}, proxy=proxy, proxy_auth=proxy_auth) as response:
                         if response.status == 401:
                             await self.process_user_login(email, use_proxy, rotate_proxy)
                             headers["Authorization"] = f"Bearer {self.access_tokens[email]}"
@@ -273,7 +290,7 @@ class Dos:
 
         return None
     
-    async def perform_checkin(self, email: str, use_proxy: bool, rotate_proxy: bool, proxy=None, retries=5):
+    async def perform_checkin(self, email: str, use_proxy: bool, rotate_proxy: bool, proxy_url=None, retries=5):
         url = f"{self.BASE_API}/claim-reward"
         data = json.dumps({"id":"daily-reward-api"})
         headers = DASHBOARD_HEADERS.copy()
@@ -282,10 +299,10 @@ class Dos:
         headers["Content-Type"] = "application/json"
         headers["User-Agent"] = self.USER_AGENT[email]
         for attempt in range(retries):
-            connector = ProxyConnector.from_url(proxy) if proxy else None
+            connector, proxy, proxy_auth = self.build_proxy_config(proxy_url)
             try:
                 async with ClientSession(connector=connector, timeout=ClientTimeout(total=60)) as session:
-                    async with session.post(url=url, headers=headers, data=data, ssl=False) as response:
+                    async with session.post(url=url, headers=headers, data=data, proxy=proxy, proxy_auth=proxy_auth) as response:
                         if response.status == 401:
                             await self.process_user_login(email, use_proxy, rotate_proxy)
                             headers["Authorization"] = f"Bearer {self.access_tokens[email]}"
@@ -303,7 +320,7 @@ class Dos:
 
         return None
     
-    async def generate_apikey(self, email: str, use_proxy: bool, rotate_proxy: bool, proxy=None, retries=5):
+    async def generate_apikey(self, email: str, use_proxy: bool, rotate_proxy: bool, proxy_url=None, retries=5):
         url = f"{self.BASE_API}/profile/generate-api-key"
         headers = DASHBOARD_HEADERS.copy()
         headers["Authorization"] = f"Bearer {self.access_tokens[email]}"
@@ -311,10 +328,10 @@ class Dos:
         headers["Content-Type"] = "application/json"
         headers["User-Agent"] = self.USER_AGENT[email]
         for attempt in range(retries):
-            connector = ProxyConnector.from_url(proxy) if proxy else None
+            connector, proxy, proxy_auth = self.build_proxy_config(proxy_url)
             try:
                 async with ClientSession(connector=connector, timeout=ClientTimeout(total=60)) as session:
-                    async with session.post(url=url, headers=headers, json={}, ssl=False) as response:
+                    async with session.post(url=url, headers=headers, json={}, proxy=proxy, proxy_auth=proxy_auth) as response:
                         if response.status == 401:
                             await self.process_user_login(email, use_proxy, rotate_proxy)
                             headers["Authorization"] = f"Bearer {self.access_tokens[email]}"
@@ -329,16 +346,16 @@ class Dos:
 
         return None
     
-    async def connect_node(self, email: str, proxy=None, retries=5):
+    async def connect_node(self, email: str, proxy_url=None, retries=5):
         url = f"{self.BASE_API}/profile/api/{self.api_keys[email]}"
         headers = EXTENSION_HEADERS.copy()
         headers["Content-Length"] = "0"
         headers["User-Agent"] = self.USER_AGENT[email]
         for attempt in range(retries):
-            connector = ProxyConnector.from_url(proxy) if proxy else None
+            connector, proxy, proxy_auth = self.build_proxy_config(proxy_url)
             try:
                 async with ClientSession(connector=connector, timeout=ClientTimeout(total=60)) as session:
-                    async with session.post(url=url, headers=headers, ssl=False) as response:
+                    async with session.post(url=url, headers=headers, proxy=proxy, proxy_auth=proxy_auth) as response:
                         response.raise_for_status()
                         return await response.json()
             except (Exception, ClientResponseError) as e:
@@ -353,14 +370,14 @@ class Dos:
         while True:
             proxy = self.get_next_proxy_for_account(email) if use_proxy else None
 
-            check = await self.check_connection(email, proxy)
-            if check and check.get("status") == "success":
-                return True
-            
-            if rotate_proxy:
-                proxy = self.rotate_proxy_for_account(email)
+            is_valid = await self.check_connection(email, proxy)
+            if not is_valid:
+                if rotate_proxy:
+                    proxy = self.rotate_proxy_for_account(email)
 
-            await asyncio.sleep(5)
+                continue
+
+            return True
 
     async def process_user_login(self, email: str, use_proxy: bool, rotate_proxy: bool):
         is_valid = await self.process_check_connection(email, use_proxy, rotate_proxy)
@@ -512,5 +529,5 @@ if __name__ == "__main__":
         print(
             f"{Fore.CYAN + Style.BRIGHT}[ {datetime.now().astimezone(wib).strftime('%x %X %Z')} ]{Style.RESET_ALL}"
             f"{Fore.WHITE + Style.BRIGHT} | {Style.RESET_ALL}"
-            f"{Fore.RED + Style.BRIGHT}[ EXIT ] 3Dos - BOT{Style.RESET_ALL}                                       "                              
+            f"{Fore.RED + Style.BRIGHT}[ EXIT ] 3DOS - BOT{Style.RESET_ALL}                                       "                              
         )
