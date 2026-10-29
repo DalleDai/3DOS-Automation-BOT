@@ -34,7 +34,7 @@ Automate your daily grind on [3DOS](https://dashboard.3dos.io/register?ref_code=
 
 1. **Clone the Repo**
 ```bash
-git clone https://github.com/cryptodai3/3DOS-Automation-BOT.git
+git clone https://github.com/DalleDai/3DOS-Automation-BOT.git
 ````
 ```bash
 cd 3DOS-Automation-BOT
